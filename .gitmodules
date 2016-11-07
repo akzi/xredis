@@ -1,0 +1,6 @@
+[submodule "deps/xtest"]
+	path = deps/xtest
+	url = http://github.com/akzi/xtest.git
+[submodule "deps/xnet"]
+	path = deps/xnet
+	url = http://github.com/akzi/xnet.git
