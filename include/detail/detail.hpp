@@ -1,13 +1,12 @@
 #pragma once
-
 #ifdef _WIN32
 #define  _CRT_SECURE_NO_WARNINGS
 #endif
-
 #include <functional>
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <list>
 #include <memory>
 #include <cassert> 
@@ -21,6 +20,7 @@
 #include "callback_func.hpp"
 #include "functional.hpp"
 #include "reply_parser.hpp"
+#include "redis_cmds.hpp"
 
 namespace xredis
 {
