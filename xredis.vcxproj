@@ -111,10 +111,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\detail\callback_func.hpp" />
+    <ClInclude Include="include\detail\crc16.hpp" />
     <ClInclude Include="include\detail\detail.hpp" />
     <ClInclude Include="include\detail\functional.hpp" />
     <ClInclude Include="include\detail\redis_cmds.hpp" />
     <ClInclude Include="include\detail\reply_parser.hpp" />
+    <ClInclude Include="include\redis_reply_entry.hpp" />
     <ClInclude Include="include\xredis.hpp" />
   </ItemGroup>
   <ItemGroup>

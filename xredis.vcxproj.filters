@@ -36,6 +36,12 @@
     <ClInclude Include="include\detail\redis_cmds.hpp">
       <Filter>头文件\detail</Filter>
     </ClInclude>
+    <ClInclude Include="include\redis_reply_entry.hpp">
+      <Filter>头文件\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="include\detail\crc16.hpp">
+      <Filter>头文件\detail</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="test\xredis_test.cpp">

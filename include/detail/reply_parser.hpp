@@ -20,7 +20,7 @@ namespace xredis
 				{
 					cluster_slots_callback *cluster_slots_cb_;
 					string_map_callback *bulk_map_cb_;
-					string_callback *bulk_cb_;
+					bulk_callback *bulk_cb_;
 					integral_callback *int_cb_;
 				};
 				~callback()
@@ -31,6 +31,26 @@ namespace xredis
 						delete bulk_cb_;
 					if (type_ == e_integral_cb)
 						delete int_cb_;
+				}
+				void close(std::string &&error_code)
+				{
+					switch (type_)
+					{
+					case e_cluster_slots_cb:
+						(*cluster_slots_cb_)(std::move(error_code), {});
+						break;
+					case e_str_map_cb:
+						(*bulk_map_cb_)(std::move(error_code), {});
+						break;
+					case e_integral_cb:
+						(*int_cb_)(std::move(error_code), {});
+						break;
+					case e_bulk_cb:
+						(*bulk_cb_)(std::move(error_code), {});
+						break;
+					default:
+						break;
+					}
 				}
 			};
 			struct obj
@@ -100,9 +120,12 @@ namespace xredis
 				data_.append(data, len);
 				run();
 			}
-			void close()
+			void close(std::string &&error_code)
 			{
-
+				for (auto &itr: callbacks_)
+				{
+					itr.close(std::move(std::string(error_code)));
+				}
 			}
 			template<typename CB>
 			void regist_callback(CB &&cb)
@@ -379,6 +402,13 @@ namespace xredis
 					(*cb.bulk_cb_)("null", "");
 				(*cb.bulk_cb_)("",std::move(*o.str_));
 				reset_task();
+			}
+			void append_cb(bulk_callback  &&cb)
+			{
+				callback tmp;
+				tmp.bulk_cb_ = new bulk_callback(std::move(cb));
+				tmp.type_ = callback::e_bulk_cb;
+				callbacks_.emplace_back(tmp);
 			}
 			void append_cb(cluster_slots_callback  &&cb)
 			{
