@@ -1,11 +1,9 @@
 #include "detail/detail.hpp"
 namespace xredis
 {
-	class xredis_client :
-		public std::enable_shared_from_this<xredis_client>
+	class xredis_client
 	{
 	public:
-		typedef std::shared_ptr<xredis_client> ptr;
 		xredis_client()
 		{
 
@@ -56,27 +54,28 @@ namespace xredis
 		xnet::connection conn_;
 		std::function<void()> close_callback_;
 	};
-	class xredis_cluster
+
+	class xredis
 	{
 	private:
-		struct connector_info
+		struct connector
 		{
-			connector_info(xnet::connector &&connector)
+			connector(xnet::connector &&connector)
 				:connector_(std::move(connector))
 			{
 
 			}
-			connector_info(connector_info &&info)
+			connector(connector &&info)
 				:connector_(std::move(info.connector_))
 			{
 				ip_ = std::move(info.ip_);
 				port_ = info.port_;
 			}
-			~connector_info()
+			~connector()
 			{
 				connector_.close();
 			}
-			bool operator <(const connector_info &self) const
+			bool operator <(const connector &self) const
 			{
 				if (ip_ < self.ip_)
 					return true;
@@ -89,19 +88,25 @@ namespace xredis
 			xnet::connector connector_;
 		};
 	public:
-		xredis_cluster(xnet::proactor &_proactor)
+		xredis(xnet::proactor &_proactor)
 			:proactor_(_proactor)
 		{
+
 		}
-		void set_addr(std::string ip, int port)
+		void set_addr(std::string ip, int port, bool cluster = true)
 		{
-			connector_info connector(proactor_.get_connector());
-			connector.ip_ = ip;
-			connector.port_ = port;
-			if (connectors_.emplace(std::move(connector)).second == false)
+			is_cluster_ = true;
+			ip_ = ip;
+			port_ = port;
+
+			connector _connector(proactor_.get_connector());
+			_connector.ip_ = ip;
+			_connector.port_ = port;
+			std::string key = ip + ":" + std::to_string(port_);
+			if (connectors_.emplace(key,std::move(_connector)).second == false)
 			{
-				connectors_.erase(connectors_.find(connector));
-				auto ret = connectors_.emplace(std::move(connector)).second;
+				connectors_.erase(connectors_.find(key));
+				auto ret = connectors_.emplace(key,std::move(_connector)).second;
 				assert(ret);
 			}
 		}
@@ -109,26 +114,51 @@ namespace xredis
 		template<typename CB>
 		void req(const std::string &key, std::string &&buf, CB &&cb)
 		{
-			xredis_client::ptr client = get_client(key);
-			if(client == nullptr)
+			xredis_client* client = get_client(key);
+			if (client == nullptr)
+			{
+				auto &connector_ = get_connector(key);
+				connector_.connector_.bind_fail_callback([&](std::string error_code) {
+					cb("connect redis server failed", {});
+				});
+				connector_.connector_.bind_success_callback([](xnet::connection &&conn) {
 
+				});
+			}
 		}
 	private:
-		xredis_client::ptr get_client(const std::string &key)
-		{
-			// todo 
-			return clients_.begin()->second;
-		}
-		std::set<connector_info> connectors_;
-		std::map<int, xredis_client::ptr> clients_;
-		xnet::proactor &proactor_;
-	};
-	class xredis 
-	{
-	public:
-		xredis()
+		void get_cluster_slots()
 		{
 
+			connector &_connector = get_connector("");
+
 		}
+		xredis_client *get_client(const std::string &key)
+		{
+			if (!is_cluster_ || key.empty())
+			{
+				if(clients_.size())
+					return &clients_.begin()->second;
+				return nullptr;
+			}
+			//todo cluster
+		}
+		connector &get_connector(const std::string &key)
+		{
+			if (!is_cluster_ || key.empty())
+			{
+				if (connectors_.size())
+					return connectors_.begin()->second;
+				assert(false);//
+			}
+			//todo cluster
+		}
+		std::string ip_;
+		int port_;
+		bool is_cluster_ = false;
+		std::map<std::string, connector> connectors_;
+		//first is max slots.
+		std::map<int, xredis_client> clients_;
+		xnet::proactor &proactor_;
 	};
 }
