@@ -164,7 +164,24 @@ namespace xredis
 			xredis_client_->regist_connector(_connector.connector_);
 			xredis_client_->regist_close_callback([](xredis_client &_xredis_client) {
 			});
-			xredis_client_->req(redis_cmd_formarter()({ "cluster","slots" }), [](std::string &&error_code, std::string && result) {
+			xredis_client_->req(
+				redis_cmd_formarter()({ "cluster","slots" }), 
+				[this](std::string &&error_code, cluster_slots &&slots){
+				if(error_code.size())
+				{
+					//todo log
+					return;
+				}
+				cluster_slots_ = std::move(slots);
+			});
+			xredis_client_->req(
+				redis_cmd_formarter()({ "cluster","slots" }), 
+				[this](std::string &&error_code, std::string && result) {
+				if(error_code.size())
+				{
+					//todo log
+					return;
+				}
 			});
 		}
 		xredis_client & add_client(const std::string &key)
