@@ -46,6 +46,10 @@ namespace xredis
 				ip_ == self.ip_ &&
 				port_ == self.port_;
 		}
+		bool operator != (const master_info & self)const
+		{
+			return !(*this == self);
+		}
 		int min_slot_;
 		int max_slot_;
 		std::string id_;

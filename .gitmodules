@@ -4,3 +4,7 @@
 [submodule "deps/xnet"]
 	path = deps/xnet
 	url = http://github.com/akzi/xnet.git
+[submodule "deps/xlog"]
+	path = deps/xlog
+	url = http://github.com/akzi/xlog.git
+	

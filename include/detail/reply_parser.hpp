@@ -115,7 +115,7 @@ namespace xredis
 			{
 
 			}
-			void parse(const char *data, int len)
+			void parse(const char *data, std::size_t len)
 			{
 				data_.append(data, len);
 				run();

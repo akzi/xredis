@@ -8,6 +8,10 @@ namespace xredis
 		{
 
 		}
+		~xredis_client()
+		{
+
+		}
 		void regist_close_callback(std::function<void(xredis_client&)> &&func)
 		{
 			close_callback_ = std::move(func);
@@ -45,6 +49,14 @@ namespace xredis
 					this, 
 					std::placeholders::_1));
 		}
+		void set_master_info(master_info info)
+		{
+			master_info_ = info;
+		}
+		master_info get_master_info()
+		{
+			return master_info_;
+		}
 	private:
 		void connect_success_callback(xnet::connection &&conn)
 		{
@@ -73,14 +85,19 @@ namespace xredis
 					close_callback();
 					return;
 				}
-				if (send_buffer_queue_.size())
-				{
-					conn_.async_send(std::move(send_buffer_queue_.front()));
-					send_buffer_queue_.pop_front();
-					return;
-				}
-				is_send_ = false;
+				send_req();
 			});
+			send_req();
+			is_send_ = true;
+		}
+		void send_req()
+		{
+			if(send_buffer_queue_.size())
+			{
+				conn_.async_send(std::move(send_buffer_queue_.front()));
+				send_buffer_queue_.pop_front();
+				return;
+			}
 		}
 		void close_callback()
 		{
@@ -95,6 +112,7 @@ namespace xredis
 		reply_parser reply_parser_;
 		xnet::connection conn_;
 		std::function<void(xredis_client &)> close_callback_;
+		master_info master_info_;
 	};
 
 	class xredis
@@ -102,95 +120,92 @@ namespace xredis
 	private:
 		struct connector
 		{
-			connector()
-			{
-
-			}
 			connector(xnet::connector &&connector)
 				:xconnector_(std::move(connector))
 			{
 
 			}
-			connector(connector &&info)
-				:xconnector_(std::move(info.xconnector_))
+			connector(connector &&self)
+				:xconnector_(std::move(self.xconnector_))
 			{
-				ip_ = std::move(info.ip_);
-				port_ = info.port_;
+				info_ = std::move(self.info_);
 			}
 			~connector()
 			{
 				xconnector_.close();
 			}
-
-			std::string ip_;
-			int port_;
-			int max_slots_;
 			xnet::connector xconnector_;
+			master_info info_;
 		};
 		
 	public:
 		xredis(xnet::proactor &_proactor)
-			:proactor_(_proactor)
+			:proactor_(_proactor),
+			connector_(proactor_.get_connector())
 		{
 
 		}
-
 		template<typename CB>
-		void req(const std::string &key, std::string &&buf, CB &&cb)
+		bool req(const std::string &key, std::string &&buf, CB &&cb)
 		{
-			xredis_client* client = get_client(key);
+			auto client = get_client(key);
+			if(!client)
+				return false;
+			client.req(std::move(buf), std::move(cb));
+			return true;
 		}
-
 		void set_addr(std::string ip, int port, bool cluster = true)
 		{
 			is_cluster_ = cluster;
-			add_connector(ip, port, 0);
+			xclient_.regist_connector(connector_.xconnector_);
+			xclient_.regist_close_callback(
+				std::bind(&xredis::client_close_callback, 
+				this, std::placeholders::_1));
+
+			connector_.xconnector_.sync_connect(ip, port);
 			if(is_cluster_)
 				req_master_info();
 		}
-
 	private:
+		void client_close_callback(xredis_client &client)
+		{
+			auto itr = clients_.find(client.get_master_info().max_slot_);
+			if(itr != clients_.end())
+				clients_.erase(itr);
+			xassert(client.get_master_info() != xclient_.get_master_info())
+		}
 		void req_master_info()
 		{
-			//get default connector
-			connector *_connector = get_connector("");
-			xassert(_connector);
-			xredis_client_ = new xredis_client;
-			xredis_client_->regist_connector(_connector->xconnector_);
-			xredis_client_->regist_close_callback([](xredis_client &_xredis_client) {
-
-			});
-			xredis_client_->req(
+			xclient_.req(
 				redis_cmd_formarter()({ "cluster","slots" }), 
 				[this](std::string &&error_code, cluster_slots &&slots){
 				if(error_code.size())
 				{
-					XLOG_CRIT << "req cluster slots failed, "<<error_code.c_str();
+					XLOG_CRIT << "req cluster slots failed, "
+						<< error_code.c_str();
 					return;
 				}
 				cluster_slots_ = std::move(slots);
 			});
-			xredis_client_->req(
+			xclient_.req(
 				redis_cmd_formarter()({ "cluster","nodes" }), 
 				[this](std::string &&error_code, std::string && result) {
 				if(error_code.size())
 				{
-					XLOG_CRIT << "req cluster nodes failed, " << error_code.c_str();
+					XLOG_CRIT << "req cluster nodes failed, "
+						<< error_code.c_str();
 					return;
 				}
 				auto master_infos = std::move(master_info_parser()(result));
 				if(master_infos != master_infos_)
-					reset_connector(std::move(master_infos_));
+					update_connector(std::move(master_infos_));
 			});
 		}
 		
 		xredis_client *get_client(const std::string &key)
 		{
-			if (!is_cluster_ || key.empty())
-			{
-				if(clients_.size())
-					return clients_.begin()->second.get();
-			}
+			if(!is_cluster_ || key.empty())
+				&xclient_;
 			int slot = get_slot(key);
 			auto itr = clients_.lower_bound(slot);
 			if (itr == clients_.end())
@@ -203,36 +218,45 @@ namespace xredis
 			auto _connector = get_connector(key);
 			if (!_connector)
 				return nullptr;
-			std::unique_ptr<xredis_client> client(new xredis_client);
-			xredis_client *ptr = client.get();
-			client->regist_connector(_connector->xconnector_);
-			clients_.emplace(_connector->max_slots_, std::move(client));
-			_connector->xconnector_.sync_connect(_connector->ip_, _connector->port_);
-			return ptr;
+			return add_client(*_connector);
 		}
-		void add_connector(const std::string ip,int port,int max_slot)
+		xredis_client * add_client(connector &_connector)
 		{
-			connector _connector(proactor_.get_connector());
-			_connector.ip_ = ip;
-			_connector.port_ = port;
-			_connector.max_slots_ = max_slots_;
-			std::string key = ip + ":" + std::to_string(port);
-			if (connectors_.emplace(key, std::move(_connector)).second == false)
+			std::unique_ptr<xredis_client> client_ptr(new xredis_client);
+			xredis_client *client = client_ptr.get();
+			client_ptr->regist_connector(_connector.xconnector_);
+			clients_.emplace(_connector.info_.max_slot_, std::move(client_ptr));
+			_connector.xconnector_.
+				sync_connect(_connector.info_.ip_, _connector.info_.port_);
+			return client;
+		}
+		void add_connector(master_info info)
+		{
+			
+			std::string key = info.ip_+":"+std::to_string(info.port_);
+			auto itr = connectors_.find(key);
+			if(itr == connectors_.end())
 			{
-				connectors_.erase(connectors_.find(key));
-				auto ret = connectors_.emplace(key, std::move(_connector)).second;
-				xassert(ret);
+				connector _connector(proactor_.get_connector());
+				_connector.info_ = info;
+				add_client(_connector);
+				connectors_.emplace(key, std::move(_connector));
+				return;
+			}
+			if (itr->second.info_ != info)
+			{
+				connectors_.erase(itr);
+				connector _connector(proactor_.get_connector());
+				_connector.info_ = info;
+				add_client(_connector);
+				connectors_.emplace(key, std::move(_connector));
 			}
 		}
 		connector *get_connector(const std::string &key)
 		{
-			if (!is_cluster_ || key.empty())
-			{
-				if (connectors_.size())
-					return &connectors_.begin()->second;
-				XLOG_CRIT << "not connector,set_addr first";
-				return nullptr;
-			}
+			if(!is_cluster_)
+				return &connector_;
+
 			master_info info = get_master_info(get_slot(key));
 			if (info.id_.empty())
 			{
@@ -242,40 +266,40 @@ namespace xredis
 			auto first = info.ip_ + ":" + std::to_string(info.port_);
 			if (connectors_.find(first) == connectors_.end())
 			{
-				add_connector(info.ip_, info.port_,info.max_slot_);
+				add_connector(info);
 			}
-			return &connectors_[first];
+			return &connectors_.find(first)->second;
 		}
-		void reset_connector(std::vector<master_info> && info)
+		void update_connector(std::vector<master_info> && info)
 		{
 			master_infos_ = std::move(info);
 			for (auto &itr: master_infos_)
 			{
-				add_connector(itr.ip_, itr.port_, itr.max_slot_);
+				add_connector(itr);
 			}
 		}
 		master_info get_master_info(uint16_t slot)
 		{
 			for (auto &itr : master_infos_)
-			{
-				if (itr.min_slot_ <= slot && slot < itr.max_slot_)
-				{
+				if(itr.min_slot_ <= slot && slot < itr.max_slot_)
 					return itr;
-				}
-			}
-			return master_info();
 		}
 		uint16_t get_slot(const std::string &key)
 		{
 			return crc16er()(key.c_str(), key.size()) % max_slots_;
 		}
-		xredis_client *xredis_client_;
+
 		bool is_cluster_ = false;
-		std::map<std::string, connector> connectors_;
-		//first is max slots.
-		const int max_slots_ = 16383;
-		std::map<int, std::unique_ptr<xredis_client>> clients_;
 		xnet::proactor &proactor_;
+		
+		//alone
+		connector connector_;
+		xredis_client xclient_;
+
+		//cluster
+		const int max_slots_ = 16383;
+		std::map<std::string, connector> connectors_;
+		std::map<int, std::unique_ptr<xredis_client>> clients_;
 		cluster_slots cluster_slots_;
 		std::vector<master_info> master_infos_;
 	};
