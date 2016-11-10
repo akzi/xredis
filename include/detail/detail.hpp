@@ -15,8 +15,8 @@
 //deps
 #include "../../deps/xnet/include/xnet.hpp"
 #include "../../deps/xtest/include/xtest.hpp"
+#include "../../deps/xlog/include/xlog.hpp"
 //end of deps
-#include "crc16.hpp"
 #include "../redis_reply_entry.hpp"
 #include "callback_func.hpp"
 #include "functional.hpp"
@@ -25,11 +25,12 @@
 
 namespace xredis
 {
-	using detail::crc16;
 	using detail::string_map_callback;
 	using detail::bulk_callback;
 	using detail::integral_callback;
 
 	using detail::reply_parser;
 	using detail::redis_cmd_formarter;
+	using detail::master_info_parser;
+	using detail::crc16er;
 }

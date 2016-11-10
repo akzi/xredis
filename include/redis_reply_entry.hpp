@@ -36,4 +36,20 @@ namespace xredis
 		};
 		std::vector<cluster_info> cluster_;
 	};
+	struct master_info
+	{
+		bool operator==(const master_info & self)const 
+		{
+			return min_slot_ == self.min_slot_ &&
+				max_slot_ == self.max_slot_ &&
+				id_ == self.id_ &&
+				ip_ == self.ip_ &&
+				port_ == self.port_;
+		}
+		int min_slot_;
+		int max_slot_;
+		std::string id_;
+		std::string ip_;
+		int  port_;
+	};
 }
