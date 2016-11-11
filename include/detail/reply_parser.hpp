@@ -11,6 +11,7 @@ namespace xredis
 			{
 				enum type_t
 				{
+					e_null,
 					e_cluster_slots_cb,
 					e_str_map_cb,
 					e_integral_cb,
@@ -23,13 +24,14 @@ namespace xredis
 					bulk_callback *bulk_cb_;
 					integral_callback *int_cb_;
 				};
+				callback() = default;
 				~callback()
 				{
 					if (type_ == e_str_map_cb)
 						delete bulk_map_cb_;
-					if (type_ == e_bulk_cb)
+					else if (type_ == e_bulk_cb)
 						delete bulk_cb_;
-					if (type_ == e_integral_cb)
+					else if (type_ == e_integral_cb)
 						delete int_cb_;
 				}
 				void close(std::string &&error_code)
@@ -52,6 +54,25 @@ namespace xredis
 						break;
 					}
 				}
+				callback(callback && self)
+				{
+					if (this != &self)
+					{
+						memcpy(this, &self, sizeof(callback));
+						self.type_ = e_null;
+					}
+				}
+				callback &operator =(callback &&self)
+				{
+					if (this != &self)
+					{
+						memcpy(this, &self, sizeof(callback));
+						self.type_ = e_null;
+					}
+					return *this;
+				}
+				callback(const callback &) = delete;
+				callback &operator =(const callback &) = delete;
 			};
 			struct obj
 			{
@@ -126,11 +147,17 @@ namespace xredis
 				{
 					itr.close(std::move(std::string(error_code)));
 				}
+				callbacks_.clear();
 			}
 			template<typename CB>
 			void regist_callback(CB &&cb)
 			{
 				append_cb(std::move(cb));
+			}
+			template<typename CB>
+			void regist_moved_error_callback(CB &&cb)
+			{
+				moved_errro_callback_ = std::move(cb);
 			}
 		private:
 			void run()
@@ -152,7 +179,11 @@ namespace xredis
 							return;
 						}
 					}
-
+					if (is_moved_error_)
+					{
+						moved_errro_callback_(moved_error_);
+						return;
+					}
 				} while (true);
 				
 			}
@@ -293,12 +324,15 @@ namespace xredis
 			}
 			bool reset_task()
 			{
-				if(pos_ == data_.size())
+				if (pos_ == data_.size())
+				{
 					data_.clear();
+				}
 				else
 				{
 					data_ = data_.substr(pos_, data_.size() - pos_);
 				}
+				pos_ = 0;
 				task_.reset();
 				return true;
 			}
@@ -314,7 +348,7 @@ namespace xredis
 			bool parser_done()
 			{
 				assert(callbacks_.size());
-				callback cb = callbacks_.front();
+				callback cb = std::move(callbacks_.front());
 				callbacks_.pop_front();
 				switch (cb.type_)
 				{
@@ -326,62 +360,77 @@ namespace xredis
 					break;
 				case callback::e_cluster_slots_cb:
 					cluster_slots_cb(cb);
+					break;
 				default:
 					break;
 				}
 				reset_task();
 				return true;
 			}
-			void cluster_slots_cb(callback cb)
+			void cluster_slots_cb(const callback &cb)
 			{
 				obj &o = task_.obj_;
-				if(o.type_ == obj::e_null)
-					(*cb.cluster_slots_cb_)("null", { });
-				else if(o.type_ == obj::e_error)
-					(*cb.cluster_slots_cb_)(std::move(*o.str_), { });
-				else if(task_.obj_.type_ != obj::e_array)
-					(*cb.cluster_slots_cb_)("error", { });
-
-				cluster_slots slots;
-				for(std::size_t i = 0; i < o.array_->size(); i++)
+				if (o.type_ == obj::e_null)
 				{
-					obj &sub_ = *(*o.array_)[i];
-					if(sub_.type_ != obj::e_array)
-						(*cb.cluster_slots_cb_)("error", { });
-
-					cluster_slots::cluster_info info;
-					std::size_t size = sub_.array_->size();
-					if(size < 3)
-						goto error;
-					info.min_slots_ = (*(*sub_.array_)[size -1]).integral_;
-					info.max_slots_ = (*(*sub_.array_)[size - 2]).integral_;
-					for(int k = (int)size-3; k >= 0;)
-					{
-						cluster_slots::cluster_info::node node;
-						obj &n = *(*sub_.array_)[k--];
-						if(n.type_ != obj::e_array)
-							goto error;
-						node.id_ = std::move( *(*(*n.array_)[0]).str_);
-						node.port_ = (*(*n.array_)[1]).integral_;
-						node.ip_ = std::move(*(*(*n.array_)[2]).str_);
-						info.node_.emplace_back(std::move(node));
-					}
-					slots.cluster_.emplace_back(std::move(info));
+					(*cb.cluster_slots_cb_)("null", {});
 				}
-				(*cb.cluster_slots_cb_)("error", std::move(slots));
-				return;
+				else if (o.type_ == obj::e_error)
+				{
+					check_moved_error();
+					(*cb.cluster_slots_cb_)(std::move(*o.str_), {});
+				}
+				else if (task_.obj_.type_ != obj::e_array)
+				{
+					(*cb.cluster_slots_cb_)("error", {});
+				}
+				else
+				{
+					cluster_slots slots;
+					for (std::size_t i = 0; i < o.array_->size(); i++)
+					{
+						obj &sub_ = *(*o.array_)[i];
+						if (sub_.type_ != obj::e_array)
+							(*cb.cluster_slots_cb_)("error", {});
 
-			error:
-				(*cb.cluster_slots_cb_)("error", { });
-				return;
+						cluster_slots::cluster_info info;
+						std::size_t size = sub_.array_->size();
+						if (size < 3)
+							goto error;
+						info.min_slots_ = (*(*sub_.array_)[size - 1]).integral_;
+						info.max_slots_ = (*(*sub_.array_)[size - 2]).integral_;
+						for (int k = (int)size - 3; k >= 0;)
+						{
+							cluster_slots::cluster_info::node node;
+							obj &n = *(*sub_.array_)[k--];
+							if (n.type_ != obj::e_array)
+								goto error;
+							node.id_ = std::move(*(*(*n.array_)[0]).str_);
+							node.port_ = (*(*n.array_)[1]).integral_;
+							node.ip_ = std::move(*(*(*n.array_)[2]).str_);
+							info.node_.emplace_back(std::move(node));
+						}
+						slots.cluster_.emplace_back(std::move(info));
+					}
+					(*cb.cluster_slots_cb_)({}, std::move(slots));
+					return;
+				error:
+					(*cb.cluster_slots_cb_)("parser_error", {});
+					return;
+				}
 			}
 			void str_map_cb(const callback &cb)
 			{
 				obj &o = task_.obj_;
-				if(o.type_ == obj::e_null)
+				if (o.type_ == obj::e_null)
+				{
 					(*cb.bulk_map_cb_)("null", {});
-				else if(o.type_ == obj::e_error)
-					(*cb.bulk_map_cb_)(std::move(*o.str_), {});
+				}
+				else if (o.type_ == obj::e_error)
+				{
+					check_moved_error();
+					(*cb.bulk_map_cb_)(std::move(*(o.str_)), {});
+					return;
+				}
 				else if (task_.obj_.type_ == obj::e_array)
 				{
 					std::map<std::string, std::string> result;
@@ -398,30 +447,51 @@ namespace xredis
 			void string_cb(const callback &cb)
 			{
 				obj &o = task_.obj_;
-				if(o.type_ == obj::e_null)
+				if (o.type_ == obj::e_null)
+				{
 					(*cb.bulk_cb_)("null", "");
-				(*cb.bulk_cb_)("",std::move(*o.str_));
-				reset_task();
+				}
+				else if(o.type_ == obj::e_error)
+				{
+					check_moved_error();
+					(*cb.bulk_cb_)(std::move(*o.str_), "");
+				}
+				else
+				{
+					(*cb.bulk_cb_)("", std::move(*o.str_));
+				}
 			}
 			void append_cb(bulk_callback  &&cb)
 			{
 				callback tmp;
 				tmp.bulk_cb_ = new bulk_callback(std::move(cb));
 				tmp.type_ = callback::e_bulk_cb;
-				callbacks_.emplace_back(tmp);
+				callbacks_.emplace_back(std::move(tmp));
 			}
-			void append_cb(cluster_slots_callback  &&cb)
+			void append_cb(cluster_slots_callback &&cb)
 			{
 				callback tmp;
 				tmp.cluster_slots_cb_= new cluster_slots_callback(std::move(cb));
 				tmp.type_ = callback::e_cluster_slots_cb;
-				callbacks_.emplace_back(tmp);
+				callbacks_.emplace_back(std::move(tmp));
+			}
+
+			void check_moved_error()
+			{
+				if (task_.obj_.str_->find("MOVED") != std::string::npos)
+				{
+					moved_error_ = task_.obj_.str_->c_str();
+					is_moved_error_ = true;
+				}
 			}
 			std::string::size_type last_pos_ = 0;
 			std::string::size_type pos_ = 0;
 			std::string data_;
 			task task_;
 			std::list<callback> callbacks_;
+			bool is_moved_error_ = false;
+			std::string moved_error_;
+			std::function<void(const std::string &)> moved_errro_callback_;
 		};
 
 	}

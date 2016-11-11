@@ -62,6 +62,6 @@ XTEST_SUITE(map)
 		itlow = mymap.lower_bound(10); 
 		xassert(itlow->second == 20);
 		itup = mymap.lower_bound(30);
-		xassert(itlow->second == 40);
+		xassert(itup->second == 40);
 	}
 }

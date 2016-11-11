@@ -1,16 +1,23 @@
+#pragma once
+#include "../xredis.hpp"
 namespace xredis
 {
-	namespace detail
+	class lists
 	{
-		struct lists
+	public:
+		lists(redis &_redis)
+			:redis_(_redis)
 		{
-			template<typename CB>
-			void LPOP(std::string &&key, CB cb)
-			{
-				std::string tmp = key;
-				std::string cmd = redis_cmd_formarter()({ "LPOP", std::move(key)});
 
-			}
-		};
-	}
+		}
+		template<typename CB>
+		bool LPOP(std::string &&key, CB &&cb)
+		{
+			std::string tmp = key;
+			std::string buf = redis_cmd_formarter()({ "LPOP", std::move(key) });
+			return redis_.req(key, buf, std::move(cb));
+		}
+	private:
+		redis &redis_;
+	};
 }

@@ -21,7 +21,6 @@
 #include "callback_func.hpp"
 #include "functional.hpp"
 #include "reply_parser.hpp"
-#include "redis_cmds.hpp"
 
 namespace xredis
 {

@@ -33,3 +33,4 @@ Debug
 xredis.VC.db
 xredis.VC.db
 xredis.VC.VC.opendb
+*.log

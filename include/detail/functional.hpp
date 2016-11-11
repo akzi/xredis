@@ -64,6 +64,7 @@ namespace xredis
 				{
 					buf.push_back('$');
 					buf.append(std::to_string(itr.size()));
+					buf.append("\r\n");
 					buf.append(itr);
 					buf.append("\r\n");
 				}
