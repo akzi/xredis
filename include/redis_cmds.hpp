@@ -1,5 +1,5 @@
 #pragma once
-#include "../xredis.hpp"
+#include "../include/xredis.hpp"
 namespace xredis
 {
 	class lists
@@ -14,7 +14,7 @@ namespace xredis
 		bool LPOP(std::string &&key, CB &&cb)
 		{
 			std::string tmp = key;
-			std::string buf = redis_cmd_formarter()({ "LPOP", std::move(key) });
+			std::string buf = cmd_builder()({ "LPOP", std::move(key) });
 			return redis_.req(key, buf, std::move(cb));
 		}
 	private:

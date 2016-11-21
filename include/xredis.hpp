@@ -2,151 +2,6 @@
 #include "detail/detail.hpp"
 namespace xredis
 {
-	class redis_client
-	{
-	public:
-		redis_client(xnet::connector && _connector)
-			:connector_(std::move(_connector))
-		{
-			init();
-		}
-		~redis_client()
-		{
-
-		}
-		template<typename CB>
-		void req(std::string &&req, CB &&cb)
-		{
-			reply_parser_.regist_callback(std::move(cb));
-			if (is_connected_ == false)
-			{
-				send_buffer_queue_.emplace_back(std::move(req));
-				return;
-			}
-			if (send_buffer_queue_.size())
-			{
-				send_buffer_queue_.emplace_back(std::move(req));
-				if (!is_send_)
-				{
-					conn_.async_send(std::move(send_buffer_queue_.front()));
-					send_buffer_queue_.pop_front();
-				}
-			}
-			else if (!is_send_)
-			{
-				conn_.async_send(std::move(req));
-			}
-			else
-			{
-				send_buffer_queue_.emplace_back(std::move(req));
-			}
-		}
-		void regist_close_callback(std::function<void(redis_client&)> &&func)
-		{
-			close_callback_ = std::move(func);
-		}
-		template<typename CB>
-		void regist_slots_moved_callback(CB cb)
-		{
-			slots_moved_callback_ = cb;
-		}
-		void set_master_info(const master_info &info)
-		{
-			master_info_ = info;
-		}
-		master_info &get_master_info()
-		{
-			return master_info_;
-		}
-		void connect(const std::string &ip, int port)
-		{
-			ip_ = ip;
-			port_ = port;
-			connector_.async_connect(ip, port);
-		}
-	private:
-		void init()
-		{
-			reply_parser_.regist_moved_error_callback(
-				[this](const std::string &error) {
-
-			});
-			connector_.bind_success_callback(
-				std::bind(&redis_client::connect_success_callback,
-					this,
-					std::placeholders::_1));
-			connector_.bind_fail_callback(
-				std::bind(&redis_client::connect_failed_callback,
-					this,
-					std::placeholders::_1));
-		}
-		void connect_success_callback(xnet::connection &&conn)
-		{
-			regist_connection(std::move(conn));
-		}
-		void connect_failed_callback(std::string error_code)
-		{
-			reply_parser_.close(std::move(error_code));
-		}
-		void regist_connection(xnet::connection &&conn)
-		{
-			is_connected_ = true;
-			conn_ = std::move(conn);
-			conn_.regist_recv_callback([this](void *data, int len) {
-				if (len <= 0)
-				{
-					close_callback();
-					conn_.close();
-					return;
-				}
-				reply_parser_.parse((char*)data, len);
-				conn_.async_recv_some();
-			});
-			conn_.regist_send_callback([this](int len) {
-				if (len < len)
-				{
-					conn_.close();
-					is_send_ = false;
-					close_callback();
-					return;
-				}
-				send_req();
-			});
-			send_req();
-			conn_.async_recv_some();
-			is_send_ = true;
-		}
-		void send_req()
-		{
-			if(send_buffer_queue_.size())
-			{
-				conn_.async_send(std::move(send_buffer_queue_.front()));
-				send_buffer_queue_.pop_front();
-				return;
-			}
-		}
-		void close_callback()
-		{
-			reply_parser_.close("lost connection error");
-			if(close_callback_)
-				close_callback_(*this);
-		}
-		std::string ip_;
-		int port_;
-		std::function<void(std::string)> connect_failed_cb_;
-		std::function<void(xnet::connection &&)> connect_success_cb_;
-		std::function<void(const std::string &, redis_client &)> slots_moved_callback_;
-		std::function<void(redis_client &)> close_callback_;
-
-		std::list<std::string> send_buffer_queue_;
-		bool is_send_ = false;
-		xnet::connection conn_;
-		xnet::connector connector_;
-		master_info master_info_;
-		reply_parser reply_parser_;
-		bool is_connected_ = false;
-	};
-
 	class redis
 	{
 	public:
@@ -171,7 +26,7 @@ namespace xredis
 			ip_ = ip;
 			port_ = port;
 			assert(!client_);
-			client_ = std::make_unique<redis_client>(proactor_.get_connector());
+			client_ = std::make_unique<client>(proactor_.get_connector());
 			client_->regist_close_callback(
 				std::bind(&redis::client_close_callback, 
 					this, std::placeholders::_1));
@@ -183,11 +38,11 @@ namespace xredis
 				req_master_info();
 		}
 	private:
-		void slots_moved_callback(const std::string & error, redis_client &client)
+		void slots_moved_callback(const std::string & error, client &client)
 		{
 			XLOG_INFO << error.c_str();
 		}
-		void client_close_callback(redis_client &client)
+		void client_close_callback(client &client)
 		{
 			auto itr = clients_.find(client.get_master_info().max_slot_);
 			if(itr != clients_.end())
@@ -199,7 +54,7 @@ namespace xredis
 		}
 		void req_master_info()
 		{
-			client_->req( redis_cmd_formarter()({ "cluster","slots"}), 
+			client_->req(cmd_builder()({ "cluster","slots"}),
 				[this](std::string &&error_code, cluster_slots &&slots){
 				if(error_code.size())
 				{
@@ -209,7 +64,7 @@ namespace xredis
 				}
 				cluster_slots_ = std::move(slots);
 			});
-			client_->req( redis_cmd_formarter()({ "cluster","nodes" }),
+			client_->req(cmd_builder()({ "cluster","nodes" }),
 				[this](std::string &&error_code, std::string && result) {
 				if (error_code.size())
 				{
@@ -229,7 +84,7 @@ namespace xredis
 				master_infos_ = std::move(infos);
 			}
 		}
-		redis_client *get_client(const std::string &key)
+		client *get_client(const std::string &key)
 		{
 			if(!is_cluster_ || key.empty())
 				&client_;
@@ -268,8 +123,8 @@ namespace xredis
 				}
 				if (!found)
 				{
-					std::unique_ptr<redis_client> client(
-						new redis_client(proactor_.get_connector()));
+					std::unique_ptr<client> client(
+						new client(proactor_.get_connector()));
 					client->get_master_info() = itr;
 					clients_.emplace(itr.max_slot_, std::move(client));
 				}
@@ -288,11 +143,11 @@ namespace xredis
 		std::string ip_;
 		int port_;
 		xnet::proactor &proactor_;
-		std::unique_ptr<redis_client> client_;
+		std::unique_ptr<client> client_;
 		//cluster
 		bool is_cluster_ = false;
 		int max_slots_;
-		std::map<int, std::unique_ptr<redis_client>> clients_;
+		std::map<int, std::unique_ptr<client>> clients_;
 		cluster_slots cluster_slots_;
 		std::vector<master_info> master_infos_;
 	};

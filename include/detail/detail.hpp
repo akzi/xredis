@@ -17,10 +17,12 @@
 #include "../../deps/xtest/include/xtest.hpp"
 #include "../../deps/xlog/include/xlog.hpp"
 //end of deps
-#include "../redis_reply_entry.hpp"
+#include "cmd_builder.hpp"
+#include "redis_reply_entry.hpp"
 #include "callback_func.hpp"
 #include "functional.hpp"
 #include "reply_parser.hpp"
+#include "client.hpp"
 
 namespace xredis
 {
@@ -29,7 +31,9 @@ namespace xredis
 	using detail::integral_callback;
 
 	using detail::reply_parser;
-	using detail::redis_cmd_formarter;
+	using detail::cmd_builder;
 	using detail::master_info_parser;
 	using detail::crc16er;
+	using detail::client;
+
 }
