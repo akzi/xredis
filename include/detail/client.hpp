@@ -93,7 +93,7 @@ namespace xredis
 			{
 				is_connected_ = true;
 				conn_ = std::move(conn);
-				conn_.regist_recv_callback([this](void *data, int len) {
+				conn_.regist_recv_callback([this](char *data, std::size_t len) {
 					if (len <= 0)
 					{
 						close_callback();
@@ -103,7 +103,7 @@ namespace xredis
 					reply_parser_.parse((char*)data, len);
 					conn_.async_recv_some();
 				});
-				conn_.regist_send_callback([this](int len) {
+				conn_.regist_send_callback([this](std::size_t  len) {
 					if (len < len)
 					{
 						conn_.close();

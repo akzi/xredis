@@ -8,6 +8,7 @@ namespace xredis
 			std::string operator()(std::vector<std::string> &&chunks)
 			{
 				std::string buf;
+				buf.reserve(1024);
 				buf.push_back('*');
 				buf.append(std::to_string(chunks.size()));
 				buf.append("\r\n");

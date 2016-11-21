@@ -19,7 +19,7 @@ XTEST_SUITE(reply_parser)
 
 		xredis::detail::reply_parser parser;
 
-		xredis::detail::cluster_slots_callback cb = 
+		xredis::cluster_slots_callback cb = 
 			[](std::string && status, xredis::cluster_slots &&cluster_slots) 
 		{ 
 

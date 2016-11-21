@@ -114,14 +114,16 @@
     <ClCompile Include="test\xredis_test.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\detail\callback_func.hpp" />
+    <ClInclude Include="include\callback_func.hpp" />
     <ClInclude Include="include\detail\client.hpp" />
     <ClInclude Include="include\detail\cmd_builder.hpp" />
     <ClInclude Include="include\detail\detail.hpp" />
     <ClInclude Include="include\detail\functional.hpp" />
-    <ClInclude Include="include\detail\redis_reply_entry.hpp" />
     <ClInclude Include="include\detail\reply_parser.hpp" />
-    <ClInclude Include="include\redis_cmds.hpp" />
+    <ClInclude Include="include\hash.hpp" />
+    <ClInclude Include="include\list.hpp" />
+    <ClInclude Include="include\pubsub.hpp" />
+    <ClInclude Include="include\reply_entry.hpp" />
     <ClInclude Include="include\xredis.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

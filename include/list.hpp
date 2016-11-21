@@ -1,5 +1,5 @@
 #pragma once
-#include "../include/xredis.hpp"
+#include "xredis.hpp"
 namespace xredis
 {
 	class lists
