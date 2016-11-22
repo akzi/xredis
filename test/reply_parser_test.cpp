@@ -1,5 +1,5 @@
 #include "../include/xredis.hpp"
-
+#if 0
 XTEST_SUITE(reply_parser)
 {
 	XUNIT_TEST(parse)
@@ -66,3 +66,4 @@ XTEST_SUITE(map)
 		xassert(itup->second == 40);
 	}
 }
+#endif 

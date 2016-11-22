@@ -110,6 +110,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="test\hash_test.cpp" />
     <ClCompile Include="test\reply_parser_test.cpp" />
     <ClCompile Include="test\xredis_test.cpp" />
   </ItemGroup>

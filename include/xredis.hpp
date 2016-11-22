@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include "detail/detail.hpp"
 namespace xredis
 {
@@ -7,20 +8,19 @@ namespace xredis
 	public:
 		redis(xnet::proactor &_proactor, int max_slots = 16383)
 			:proactor_(_proactor),
-			max_slots_(max_slots_)
+			max_slots_(max_slots)
 		{
 
 		}
 		template<typename CB>
-		bool req(const std::string &key, std::string &&buf, CB &&cb)
+		void req(const std::string &key, std::string &&buf, CB &&cb)
 		{
 			auto client = get_client(key);
 			if (!client)
-				return false;
+				return cb("NO Clients", {});
 			client->req(std::move(buf), std::move(cb));
-			return true;
 		}
-		void set_addr(std::string ip, int port, bool cluster = true)
+		redis &set_addr(std::string ip, int port, bool cluster = true)
 		{
 			is_cluster_ = cluster;
 			ip_ = ip;
@@ -36,6 +36,12 @@ namespace xredis
 			client_->connect(ip_, port);
 			if(is_cluster_)
 				req_master_info();
+			return *this;
+		}
+		redis &regist_cluster_init_callback(cluster_init_callback callback_)
+		{
+			cluster_init_callback_ = callback_;
+			return *this;
 		}
 	private:
 		void slots_moved_callback(const std::string & error, client &client)
@@ -70,9 +76,11 @@ namespace xredis
 				{
 					XLOG_CRIT << "req cluster nodes failed, "
 						<< error_code.c_str();
+					cluster_init_done(false);
 					return;
 				}
 				cluster_nodes_callback(result);
+				cluster_init_done(true);
 			});
 		}
 		void cluster_nodes_callback(const std::string &result)
@@ -83,6 +91,13 @@ namespace xredis
 				update_client(infos);
 				master_infos_ = std::move(infos);
 			}
+			
+		}
+		void cluster_init_done(bool result)
+		{
+			if (cluster_init_callback_)
+				cluster_init_callback_({}, std::move(result));
+			cluster_init_callback_ = nullptr;
 		}
 		client *get_client(const std::string &key)
 		{
@@ -126,6 +141,7 @@ namespace xredis
 					std::unique_ptr<client> client(
 						new client(proactor_.get_connector()));
 					client->get_master_info() = itr;
+					client->connect(itr.ip_, itr.port_);
 					clients_.emplace(itr.max_slot_, std::move(client));
 				}
 			}
@@ -147,6 +163,7 @@ namespace xredis
 		//cluster
 		bool is_cluster_ = false;
 		int max_slots_;
+		cluster_init_callback cluster_init_callback_;
 		std::map<int, std::unique_ptr<client>> clients_;
 		cluster_slots cluster_slots_;
 		std::vector<master_info> master_infos_;

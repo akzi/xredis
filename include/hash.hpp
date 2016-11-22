@@ -10,7 +10,7 @@ namespace xredis
 		{
 
 		}
-		void hset(const std::string &name, std::string &key, std::string &&value, integral_callback && callback)
+		void hset(const std::string &name, std::string &&key, std::string &&value, integral_callback && callback)
 		{
 			std::string data = cmd_builder()({"HSET", name, std::move(key),std::move(value)});
 			redis_.req(name, std::move(data), std::move(callback));
@@ -18,7 +18,7 @@ namespace xredis
 		void hget(const std::string &name, std::string &&key, bulk_callback&& callback)
 		{
 			std::string data = cmd_builder()({"HGET", name, std::move(key)});
-			redis_.req(key, std::move(data), callback);
+			redis_.req(key, std::move(data), std::move(callback));
 		}
 	private:
 		redis &redis_;

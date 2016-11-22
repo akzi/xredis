@@ -7,6 +7,9 @@
     <ClCompile Include="test\reply_parser_test.cpp">
       <Filter>unit_test</Filter>
     </ClCompile>
+    <ClCompile Include="test\hash_test.cpp">
+      <Filter>unit_test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\detail\client.hpp">
