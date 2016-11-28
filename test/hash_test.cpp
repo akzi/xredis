@@ -36,7 +36,7 @@ XTEST_SUITE(hash)
 	XUNIT_TEST(set_addr)
 	{
 		redis.set_addr("192.168.3.224",7000);
-		redis.regist_cluster_init_callback([](std::string &&status, bool result) {
+		redis.regist_cluster_init_callback([](std::string &&, bool result) {
 			if (!result)
 				xassert(false);
 			hset_test();
