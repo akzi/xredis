@@ -59,6 +59,14 @@ namespace xredis
 			{
 				return master_info_;
 			}
+			void regist_connect_success_callback(std::function<void()> &&callback)
+			{
+				connect_success_callback_ = std::move(callback);
+			}
+			void regist_connect_failed_callback(std::function<void(const std::string&)> &&callback)
+			{
+				connect_failed_callback_ = std::move(callback);
+			}
 			void connect(const std::string &ip, int port)
 			{
 				ip_ = ip;
@@ -84,9 +92,13 @@ namespace xredis
 			void connect_success_callback(xnet::connection &&conn)
 			{
 				regist_connection(std::move(conn));
+				if(connect_success_callback_)
+					connect_success_callback_();
 			}
 			void connect_failed_callback(std::string error_code)
 			{
+				if(connect_failed_callback_)
+					connect_failed_callback_(error_code);
 				reply_parser_.close(std::move(error_code));
 			}
 			void regist_connection(xnet::connection &&conn)
@@ -139,7 +151,8 @@ namespace xredis
 			std::function<void(xnet::connection &&)> connect_success_cb_;
 			std::function<void(const std::string &, client &)> slots_moved_callback_;
 			std::function<void(client &)> close_callback_;
-
+			std::function<void()> connect_success_callback_;
+			std::function<void(const std::string&)> connect_failed_callback_;
 			std::list<std::string> send_buffer_queue_;
 			bool is_send_ = false;
 			xnet::connection conn_;

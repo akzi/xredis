@@ -10,7 +10,7 @@ namespace xredis
 			:proactor_(_proactor),
 			max_slots_(max_slots)
 		{
-
+			client_ = std::make_unique<client>(proactor_.get_connector());
 		}
 		template<typename CB>
 		void req(const std::string &key, std::string &&buf, CB &&cb)
@@ -25,8 +25,6 @@ namespace xredis
 			is_cluster_ = cluster;
 			ip_ = ip;
 			port_ = port;
-			assert(!client_);
-			client_ = std::make_unique<client>(proactor_.get_connector());
 			client_->regist_close_callback(
 				std::bind(&redis::client_close_callback, 
 					this, std::placeholders::_1));
@@ -36,6 +34,16 @@ namespace xredis
 			client_->connect(ip_, port);
 			if(is_cluster_)
 				req_master_info();
+			return *this;
+		}
+		redis &regist_connect_success_callback(std::function<void()> &&callback)
+		{
+			client_->regist_connect_success_callback(std::move(callback));
+			return *this;
+		}
+		redis &regist_connect_failed_callback(std::function<void(const std::string &)> &&callback)
+		{
+			client_->regist_connect_failed_callback(std::move(callback));
 			return *this;
 		}
 		redis &regist_cluster_init_callback(cluster_init_callback callback_)
@@ -102,7 +110,7 @@ namespace xredis
 		client *get_client(const std::string &key)
 		{
 			if(!is_cluster_ || key.empty())
-				&client_;
+				return client_.get();
 			int slot = get_slot(key);
 			auto itr = clients_.lower_bound(slot);
 			if (itr == clients_.end() || 
