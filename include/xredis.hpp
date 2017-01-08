@@ -17,7 +17,8 @@ namespace xredis
 		{
 			auto client = get_client(key);
 			if (!client)
-				return cb("NO Clients", {});
+				throw std::runtime_error("not find client");
+
 			client->req(std::move(buf), std::move(cb));
 		}
 		redis &set_addr(std::string ip, int port, bool cluster = true)

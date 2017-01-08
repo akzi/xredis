@@ -33,6 +33,17 @@ XTEST_SUITE(hash)
 		});
 	}
 
+	void hgetall_test()
+	{
+		xredis::hash hash(redis);
+		hash.hgetall("hash", [](std::string && status, std::map<std::string, std::string> &&string_map) {
+			if (status.size())
+			{
+				std::cout << status << std::endl;
+				return;
+			}
+		});
+	}
 	XUNIT_TEST(set_addr)
 	{
 		redis.set_addr("192.168.3.224",7000);

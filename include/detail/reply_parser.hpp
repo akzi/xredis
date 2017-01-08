@@ -16,23 +16,29 @@ namespace xredis
 					e_str_map_cb,
 					e_integral_cb,
 					e_bulk_cb,
+					e_array_string_cb
 				} type_;
 				union
 				{
 					cluster_slots_callback *cluster_slots_cb_;
-					string_map_callback *bulk_map_cb_;
-					bulk_callback *bulk_cb_;
+					string_map_callback *str_map_cb_;
+					array_string_callback *array_string_cb_;
+					string_callback *bulk_cb_;
 					integral_callback *integral_cb_;
 				};
 				callback() = default;
 				~callback()
 				{
 					if (type_ == e_str_map_cb)
-						delete bulk_map_cb_;
+						delete str_map_cb_;
 					else if (type_ == e_bulk_cb)
 						delete bulk_cb_;
 					else if (type_ == e_integral_cb)
 						delete integral_cb_;
+					else if (type_ == e_array_string_cb)
+						delete array_string_cb_;
+					else if (type_ == e_cluster_slots_cb)
+						delete cluster_slots_cb_;
 				}
 				void close(std::string &&error_code)
 				{
@@ -42,7 +48,7 @@ namespace xredis
 						(*cluster_slots_cb_)(std::move(error_code), {});
 						break;
 					case e_str_map_cb:
-						(*bulk_map_cb_)(std::move(error_code), {});
+						(*str_map_cb_)(std::move(error_code), {});
 						break;
 					case e_integral_cb:
 						(*integral_cb_)(std::move(error_code), {});
@@ -426,12 +432,12 @@ namespace xredis
 				obj &o = task_.obj_;
 				if (o.type_ == obj::e_null)
 				{
-					(*cb.bulk_map_cb_)("null", {});
+					(*cb.str_map_cb_)("null", {});
 				}
 				else if (o.type_ == obj::e_error)
 				{
 					check_moved_error();
-					(*cb.bulk_map_cb_)(std::move(*(o.str_)), {});
+					(*cb.str_map_cb_)(std::move(*(o.str_)), {});
 					return;
 				}
 				else if (task_.obj_.type_ == obj::e_array)
@@ -488,10 +494,24 @@ namespace xredis
 				tmp.type_ = callback::e_integral_cb;
 				callbacks_.emplace_back(std::move(tmp));
 			}
-			void append_cb(bulk_callback  &&cb)
+			void append_cb(string_map_callback &&cb)
 			{
 				callback tmp;
-				tmp.bulk_cb_ = new bulk_callback(std::move(cb));
+				tmp.str_map_cb_= new string_map_callback(std::move(cb));
+				tmp.type_ = callback::e_str_map_cb;
+				callbacks_.emplace_back(std::move(tmp));
+			}
+			void append_cb(array_string_callback &&cb)
+			{
+				callback tmp;
+				tmp.array_string_cb_= new array_string_callback(std::move(cb));
+				tmp.type_ = callback::e_array_string_cb;
+				callbacks_.emplace_back(std::move(tmp));
+			}
+			void append_cb(string_callback  &&cb)
+			{
+				callback tmp;
+				tmp.bulk_cb_ = new string_callback(std::move(cb));
 				tmp.type_ = callback::e_bulk_cb;
 				callbacks_.emplace_back(std::move(tmp));
 			}
