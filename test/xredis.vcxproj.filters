@@ -10,6 +10,9 @@
     <Filter Include="include\detail">
       <UniqueIdentifier>{1bfb94b1-b688-4d40-ae05-591e782b29bb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="include\cmd">
+      <UniqueIdentifier>{f5fdc619-8d5e-4a4c-89ca-9a5a44f1675a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="reply_parser_test.cpp">
@@ -23,21 +26,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\callback_func.hpp">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\hash.hpp">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\list.hpp">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\pubsub.hpp">
-      <Filter>include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\reply_entry.hpp">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\xredis.hpp">
       <Filter>include</Filter>
     </ClInclude>
@@ -54,6 +42,21 @@
       <Filter>include\detail</Filter>
     </ClInclude>
     <ClInclude Include="..\include\detail\detail.hpp">
+      <Filter>include\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\hash.hpp">
+      <Filter>include\cmd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\list.hpp">
+      <Filter>include\cmd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\pubsub.hpp">
+      <Filter>include\cmd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\reply_entry.hpp">
+      <Filter>include\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\callback_func.hpp">
       <Filter>include\detail</Filter>
     </ClInclude>
   </ItemGroup>

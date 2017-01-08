@@ -9,7 +9,7 @@ XTEST_SUITE(hash)
 
 	void hset_test()
 	{
-		xredis::hash hash(redis);
+		xredis::cmd::hash hash(redis);
 		hash.hset("hash", "hello", "world", [](std::string && status, uint32_t && result) {
 			if (status.size())
 			{
@@ -22,7 +22,7 @@ XTEST_SUITE(hash)
 
 	void hget_test()
 	{
-		xredis::hash hash(redis);
+		xredis::cmd::hash hash(redis);
 		hash.hget("hash", "hello", [](std::string && status, std::string && result) {
 			if (status.size())
 			{
@@ -35,7 +35,7 @@ XTEST_SUITE(hash)
 
 	void hgetall_test()
 	{
-		xredis::hash hash(redis);
+		xredis::cmd::hash hash(redis);
 		hash.hgetall("hash", [](std::string && status, std::map<std::string, std::string> &&string_map) {
 			if (status.size())
 			{
