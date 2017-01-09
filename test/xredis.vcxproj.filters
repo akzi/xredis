@@ -59,5 +59,11 @@
     <ClInclude Include="..\include\callback_func.hpp">
       <Filter>include\detail</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\set.hpp">
+      <Filter>include\cmd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\string.hpp">
+      <Filter>include\cmd</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

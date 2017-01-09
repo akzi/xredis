@@ -12,24 +12,37 @@ namespace xredis
 			{
 
 			}
-			template<typename ...T>
-			void blpop(int64_t timeout, array_string_callback &&cb, T &&...key)
+			void blpop(std::vector<std::string> &&keys,int64_t timeout, array_string_callback &&cb)
 			{
-				std::string buf = cmd_builder()({ "BLPOP", std::forward<T>(key)..., std::to_string(timeout) });
+				std::vector<std::string> vec = { "BLPOP"};
+				auto key = keys.front();
+				for (auto &itr : keys)
+					vec.emplace_back(std::move(itr));
+				vec.emplace_back(std::to_string(timeout));
+				std::string buf = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
-			template<typename ...T>
-			void brpop(int64_t timeout, array_string_callback &&cb, T &&...key)
+			void brpop(std::vector<std::string> &&keys ,int64_t timeout, array_string_callback &&cb)
 			{
-				std::string buf = cmd_builder()({ "BRPOP", std::forward<T>(key)..., std::to_string(timeout)});
+				std::vector<std::string> vec = { "BRPOP" };
+				auto key = keys.front();
+				for (auto &itr : keys)
+					vec.emplace_back(std::move(itr));
+				vec.emplace_back(std::to_string(timeout));
+				std::string buf = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
 			template<typename T>
-			void brpoplpush(const std::string &key, T &&source, T &&destination, int64_t timeout, string_callback &&cb)
+			void brpoplpush(const std::string &key, T &&source,T &&destination, int64_t timeout, string_callback &&cb)
 			{
-				std::string buf = cmd_builder()({ "BRPOPLPUSH", key, std::forward<T>(source), std::forward<T>(destination) ,std::to_string(timeout)});
+				std::string buf = cmd_builder()({ 
+					"BRPOPLPUSH",
+					key,
+					std::forward<T>(source), 
+					std::forward<T>(destination) ,
+					std::to_string(timeout)});
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
@@ -46,7 +59,13 @@ namespace xredis
 				if (before)
 					position = "BEFORE";
 
-				std::string buf = cmd_builder()({ "LINSERT", key , std::move(position), std::forward<T>(pivot), std::forward<T>(value)});
+				std::string buf = cmd_builder()({
+					"LINSERT", 
+					key , 
+					std::move(position), 
+					std::forward<T>(pivot), 
+					std::forward<T>(value)});
+
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
@@ -62,44 +81,64 @@ namespace xredis
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
-			template<typename ...T>
-			void lpush(const std::string &key, integral_callback &&cb, T && ...value)
+			void lpush(const std::string &key,std::vector<std::string> &&values,integral_callback &&cb)
 			{
-				std::string data = cmd_builder()({"LPUSH", key, std::forward<T>(value)... });
+				std::vector<std::string> vec = { "LPUSH", key };
+				for (auto &itr : values)
+					vec.emplace_back(std::move(itr));
+				std::string data = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(data), std::move(cb));
 			}
 
-			template<typename ...T>
-			void lpushx(const std::string &key, integral_callback &&cb, T && ...value)
+			void lpushx(const std::string &key, std::vector<std::string> &&values, integral_callback &&cb)
 			{
-				std::string data = cmd_builder()({ "LPUSHX", key, std::forward<T>(value)... });
+				std::vector<std::string> vec = {"LPUSHX", key };
+				for (auto &itr : values)
+					vec.emplace_back(std::move(itr));
+				std::string data = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(data), std::move(cb));
 			}
 
-			void lrange(const std::string &key, int64_t start, int64_t stop, array_string_callback &&cb)
+			void lrange(const std::string &key,int64_t start,int64_t stop,array_string_callback &&cb)
 			{
-				std::string buf = cmd_builder()({ "LRANGE", key, std::to_string(start), std::to_string(stop) });
+				std::string buf = cmd_builder()({ 
+					"LRANGE", 
+					key, 
+					std::to_string(start), 
+					std::to_string(stop) });
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
 			template<typename T>
-			void lrem(const std::string &key, int64_t count, T &&value, integral_callback &&cb)
+			void lrem(const std::string &key,int64_t count, T &&value,integral_callback &&cb)
 			{
-				std::string buf = cmd_builder()({"LREM", key, std::to_string(count), std::forward<T>(value)});
+				std::string buf = cmd_builder()({
+					"LREM", 
+					key, 
+					std::to_string(count), 
+					std::forward<T>(value)});
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
 			template<typename T>
-			void lset(const std::string &key, int64_t index, T &&value, string_callback &&cb)
+			void lset(const std::string &key,int64_t index, T &&value,string_callback &&cb)
 			{
-				std::string buf = cmd_builder()({ "LSET", key, std::to_string(index), std::forward<T>(value) });
+				std::string buf = cmd_builder()({ 
+					"LSET", 
+					key,
+					std::to_string(index),
+					std::forward<T>(value) });
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
 			template<typename T>
 			void ltrim(const std::string &key, int64_t start, int64_t stop, string_callback &&cb)
 			{
-				std::string buf = cmd_builder()({ "LTRIM", key, std::to_string(start), std::to_string(stop) });
+				std::string buf = cmd_builder()({ 
+					"LTRIM", 
+					key, 
+					std::to_string(start), 
+					std::to_string(stop) });
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
@@ -112,23 +151,32 @@ namespace xredis
 			template<typename T>
 			void rpoplpush(const std::string &key, T &&source, T &&destination, string_callback &&cb)
 			{
-				std::string buf = cmd_builder()({ "RPOPLPUSH", key, std::forward<T>(source), std::forward<T>(destination)});
+				std::string buf = cmd_builder()({
+					"RPOPLPUSH", 
+					key, 
+					std::forward<T>(source), 
+					std::forward<T>(destination)});
 				redis_.req(key, std::move(buf), std::move(cb));
 			}
 
-			template<typename ...T>
-			void rpush(const std::string &key,integral_callback &&cb, && ...value)
+			void rpush(const std::string &key, std::vector<std::string> &&values,integral_callback &&cb)
 			{
-				std::string data = cmd_builder()({ "RPUSH", key, std::forward<T>(value)... });
+				std::vector<std::string> vec = { "RPUSH", key };
+				for (auto &itr : values)
+					vec.emplace_back(std::move(itr));
+				std::string data = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(data), std::move(cb));
 			}
 
-			template<typename ...T>
-			void rpushx(const std::string &key, integral_callback &&cb, && ...value)
+			void rpushx(const std::string &key, std::vector<std::string> &&values, integral_callback &&cb)
 			{
-				std::string data = cmd_builder()({ "RPUSHX", key, std::forward<T>(value)... });
+				std::vector<std::string> vec = { "RPUSHX", key };
+				for (auto &itr : values)
+					vec.emplace_back(std::move(itr));
+				std::string data = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(data), std::move(cb));
 			}
+
 		private:
 			redis &redis_;
 		};

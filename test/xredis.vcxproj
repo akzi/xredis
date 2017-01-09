@@ -34,6 +34,8 @@
     <ClInclude Include="..\include\list.hpp" />
     <ClInclude Include="..\include\pubsub.hpp" />
     <ClInclude Include="..\include\reply_entry.hpp" />
+    <ClInclude Include="..\include\set.hpp" />
+    <ClInclude Include="..\include\string.hpp" />
     <ClInclude Include="..\include\xredis.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

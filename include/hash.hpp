@@ -66,17 +66,21 @@ namespace xredis
 				redis_.req(key, std::move(data), std::move(callback));
 			}
 
-			template<typename ...T>
-			void hmget(const std::string &key, string_map_callback &&callback, T&& ...field)
+			void hmget(const std::string &key, std::vector<std::string>&& fields, string_map_callback &&callback)
 			{
-				std::string data = cmd_builder()({ "HMGET", key, std::forward<T>(field)... });
+				std::vector<std::string> vec = {"HMGET", key};
+				for (auto &itr : fields)
+					vec.emplace_back(std::move(itr));
+				std::string data = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(data), std::move(callback));
 			}
 
-			template<typename ...T>
-			void hmset(const std::string &key, string_callback &&callback, T&& ...field)
+			void hmset(const std::string &key, std::vector<std::string> &&fields, string_callback &&callback)
 			{
-				std::string data = cmd_builder()({ "HMSET", key, std::forward<T>(field)... });
+				std::vector<std::string> vec = { "HMSET", key };
+				for (auto &itr : fields)
+					vec.emplace_back(std::move(itr));
+				std::string data = cmd_builder()(std::move(vec));
 				redis_.req(key, std::move(data), std::move(callback));
 			}
 

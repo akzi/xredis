@@ -1,12 +1,32 @@
 #include "../include/hash.hpp"
 
 
+template<typename ...T>
+int hello(const std::string &key, T && ...value, const std::string &str)
+{
+
+}
+
 XTEST_SUITE(hash)
 {
 	xnet::proactor pro;
 	xredis::redis redis(pro);
 
 
+	void hmget_test()
+	{
+		xredis::cmd::hash hash(redis);
+		hash.hmget("hash", { "hello2" } , [](std::string && status, std::map<std::string, std::string>&& result)
+		{
+			if (status.size())
+			{
+				std::cout << status << std::endl;
+				return;
+			}
+		});
+
+		
+	}
 	void hset_test()
 	{
 		xredis::cmd::hash hash(redis);
