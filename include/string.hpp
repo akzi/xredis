@@ -34,12 +34,33 @@ namespace xredis
 			};
 			void bitop(bitop_operation op, const std::string &destination, std::vector<std::string> &&keys, integral_callback &&cb)
 			{
-				auto vec = std::vector<std::string>{ "BITOP", destination};
+				auto vec = std::vector<std::string>{ "BITOP"};
+				std::string op_str;
+				switch (op)
+				{
+				case xredis::cmd::string::AND:
+					op_str = "AND";
+					break;
+				case xredis::cmd::string::OR:
+					op_str = "OR";
+					break;
+				case xredis::cmd::string::XOR:
+					op_str = "XOR";
+					break;
+				case xredis::cmd::string::NOT:
+					op_str = "NOT";
+					break;
+				default:
+					break;
+				}
+				vec.emplace_back(std::move(op_str));
+				vec.emplace_back(destination);
 				for (auto &itr : keys)
 					vec.emplace_back(std::move(itr));
 				auto data = cmd_builder()(std::move(vec));
 				redis_.req(destination, std::move(data), std::move(cb));
 			}
+
 			void mget(std::vector<std::string> &&keys, array_string_callback &&cb)
 			{
 				std::vector<std::string> vec = {"MGET"};
