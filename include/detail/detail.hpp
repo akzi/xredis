@@ -15,7 +15,6 @@
 //deps
 #include "../../../xnet/include/xnet.hpp"
 #include "../../../xtest/include/xtest.hpp"
-#include "../../../xlog/include/xlog.hpp"
 //end of deps
 #include "../reply_entry.hpp"
 #include "../callback_func.hpp"

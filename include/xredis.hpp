@@ -1,8 +1,11 @@
 #pragma once
 #include <functional>
+#include <memory>
 #include "detail/detail.hpp"
 namespace xredis
 {
+	using namespace detail;
+
 	class redis
 	{
 	public:
@@ -10,7 +13,7 @@ namespace xredis
 			:proactor_(_proactor),
 			max_slots_(max_slots)
 		{
-			client_ = std::make_unique<client>(proactor_.get_connector());
+			client_.reset(new detail::client(proactor_.get_connector()));
 		}
 		template<typename CB>
 		void req(const std::string &key, std::string &&buf, CB &&cb)
@@ -53,9 +56,8 @@ namespace xredis
 			return *this;
 		}
 	private:
-		void slots_moved_callback(const std::string & error, client &client)
+		void slots_moved_callback(const std::string & error, detail::client &)
 		{
-			XLOG_INFO << error.c_str();
 		}
 		void client_close_callback(client &client)
 		{
@@ -70,21 +72,17 @@ namespace xredis
 		void req_master_info()
 		{
 			client_->req(cmd_builder()({ "cluster","slots"}),
-				[this](std::string &&error_code, cluster_slots &&slots){
+				[this](std::string &&error_code, cluster_slots &&slots) mutable {
 				if(error_code.size())
 				{
-					XLOG_CRIT << "req cluster slots failed, "
-						<< error_code.c_str();
 					return;
 				}
-				cluster_slots_ = std::move(slots);
+				cluster_slots_.move_reset(std::move(slots));
 			});
 			client_->req(cmd_builder()({ "cluster","nodes" }),
 				[this](std::string &&error_code, std::string && result) {
 				if (error_code.size())
 				{
-					XLOG_CRIT << "req cluster nodes failed, "
-						<< error_code.c_str();
 					cluster_init_done(false);
 					return;
 				}
@@ -108,7 +106,7 @@ namespace xredis
 				cluster_init_callback_({}, std::move(result));
 			cluster_init_callback_ = nullptr;
 		}
-		client *get_client(const std::string &key)
+		detail::client *get_client(const std::string &key)
 		{
 			if(!is_cluster_ || key.empty())
 				return client_.get();
@@ -147,8 +145,8 @@ namespace xredis
 				}
 				if (!found)
 				{
-					std::unique_ptr<client> client(
-						new client(proactor_.get_connector()));
+					std::unique_ptr<detail::client> client(
+						new detail::client(proactor_.get_connector()));
 					client->get_master_info() = itr;
 					client->connect(itr.ip_, itr.port_);
 					clients_.emplace(itr.max_slot_, std::move(client));
@@ -168,12 +166,12 @@ namespace xredis
 		std::string ip_;
 		int port_;
 		xnet::proactor &proactor_;
-		std::unique_ptr<client> client_;
+		std::unique_ptr<detail::client> client_;
 		//cluster
 		bool is_cluster_ = false;
 		int max_slots_;
 		cluster_init_callback cluster_init_callback_;
-		std::map<int, std::unique_ptr<client>> clients_;
+		std::map<int, std::unique_ptr<detail::client>> clients_;
 		cluster_slots cluster_slots_;
 		std::vector<master_info> master_infos_;
 	};
