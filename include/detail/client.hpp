@@ -16,17 +16,17 @@ namespace xredis
 
 			}
 			template<typename CB>
-			void req(std::string &&req, CB &&cb)
+			void req(std::string &&data, CB &&cb)
 			{
 				reply_parser_.regist_callback(std::move(cb));
 				if (is_connected_ == false)
 				{
-					send_buffer_queue_.emplace_back(std::move(req));
+					send_buffer_queue_.emplace_back(std::move(data));
 					return;
 				}
 				if (send_buffer_queue_.size())
 				{
-					send_buffer_queue_.emplace_back(std::move(req));
+					send_buffer_queue_.emplace_back(std::move(data));
 					if (!is_send_)
 					{
 						conn_.async_send(std::move(send_buffer_queue_.front()));
@@ -35,11 +35,11 @@ namespace xredis
 				}
 				else if (!is_send_)
 				{
-					conn_.async_send(std::move(req));
+					conn_.async_send(std::move(data));
 				}
 				else
 				{
-					send_buffer_queue_.emplace_back(std::move(req));
+					send_buffer_queue_.emplace_back(std::move(data));
 				}
 			}
 			void regist_close_callback(std::function<void(client&)> &&func)
@@ -79,6 +79,7 @@ namespace xredis
 				reply_parser_.regist_moved_error_callback(
 					[this](const std::string &error) {
 
+					std::cout << error <<std::endl;
 				});
 				connector_.bind_success_callback(
 					std::bind(&client::connect_success_callback,

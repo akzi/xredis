@@ -58,6 +58,7 @@ namespace xredis
 	private:
 		void slots_moved_callback(const std::string & error, detail::client &)
 		{
+			std::cout << error << std::endl;
 		}
 		void client_close_callback(client &client)
 		{

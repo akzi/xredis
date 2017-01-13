@@ -289,7 +289,7 @@ namespace xredis
 			{
 				set_roll_back();
 				std::string buf;
-				while (pos_ < (int)data_.size())
+				while (pos_ < data_.size())
 				{
 					char ch = data_[pos_];
 					if (ch != '\r')
